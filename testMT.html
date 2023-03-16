@@ -1,0 +1,225 @@
+<!doctype html>
+<html>
+<head>
+
+</head>
+<body>
+<style>
+.items {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* canvas.emscripten { border: 0px none; background-color: black; } */
+</style>
+<html>
+    <head>
+    	<meta http-equiv=”Content-Type” content=”text/html; charset=utf-8″>
+        <title>MPlayer</title>
+    </head>
+    <div>
+		<canvas class="emscripten" id="player1" width="480px" height="280px" style="border: 2px; background-color:black"></canvas>
+	</div>
+	 <div>
+		<canvas class="emscripten" id="player2" width="480px" height="280px" style="border: 2px; background-color:black"></canvas>
+	</div>
+</html>
+<!-- <div class="emscripten_border">
+	<canvas class="emscripten" id="playercanvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+</div> -->
+
+ <div class="items">
+    <button type="button" onClick="Init1()">Start1</button>
+	 <button type="button" onClick="Init2()">Start2</button>
+	<button type="button" onClick="stop()">Stop</button>
+</div>
+
+ <div class="items">
+</div>
+ <script async type="text/javascript" src="SuperRenderMT2.js"></script>
+ <script>
+    var RenderNum=0;
+    var Render100FrameTime=0;
+	var pauseInput =0;
+    var yuvWidth=704;
+	var yuvHeight=576;
+    var inputSize=yuvWidth*yuvHeight*3/2;
+
+   //错误码：1是成功，0是错误
+   function readLocalFile () {
+        var localFile = document.getElementById("uploadFile").files[0];
+        var reader = new FileReader();
+		const _this = this;
+		reader.readAsArrayBuffer(localFile);
+        reader.onload = function() {
+		    //_this.Init();
+			var bytes = new Uint8Array(this.result);
+			const bodyData = bytes.slice(0, bytes.length);
+            // 向渲染库中塞流
+            _this.PlayM4_inputData(bodyData);			
+        }
+	}
+	function Init1()
+	{
+		var canvas = document.getElementById('player1');
+		//console.log("test.html canvasID:"+canvas.id);
+		//canvasID写入wasm内存
+         var pKeyData1 = Module._malloc(32);//通过emscripten分配C/C++中的堆内存
+		if (pKeyData1 === null) {
+    		return;
+		}
+		var bufData = stringToBytes ("#player1");
+		var aKeyData = Module.HEAPU8.subarray(pKeyData1, pKeyData1 + 128);//堆内存绑定到视图对象
+		aKeyData.set(new Uint8Array(bufData));// 数据写入到emscripten分配的内存中去
+		
+		//canvas2写入wasm内存
+		var pKeyData2 = Module._malloc(32);//通过emscripten分配C/C++中的堆内存
+		if (pKeyData2 === null) {
+    		return;
+		}
+		var bufData = stringToBytes ("#player2");
+		var aKeyData = Module.HEAPU8.subarray(pKeyData2, pKeyData2 + 128);//堆内存绑定到视图对象
+		aKeyData.set(new Uint8Array(bufData));// 数据写入到emscripten分配的内存中去
+
+		//传到C层
+		Module._InitMain(yuvWidth,yuvHeight,inputSize,pKeyData1,pKeyData2);	
+		//render();
+	}
+	function Init2()
+	{
+		var canvas = document.getElementById('player2');
+		//console.log("test.html canvasID:"+canvas.id);
+		//canvasID写入wasm内存
+        var pKeyData = Module._malloc(32);//通过emscripten分配C/C++中的堆内存
+		if (pKeyData === null) {
+    		return;
+		}
+		var bufData = stringToBytes ("#player2");
+		var aKeyData = Module.HEAPU8.subarray(pKeyData, pKeyData + 128);//堆内存绑定到视图对象
+		aKeyData.set(new Uint8Array(bufData));// 数据写入到emscripten分配的内存中去
+
+		//传到C层
+		Module._InitMain(yuvWidth,yuvHeight,inputSize,pKeyData);	
+		//render();
+	}
+	function render()
+	{
+		console.log("testMT.html render");
+		Module._requestRender(1.0,null);
+		requestAnimationFrame(render);
+	}
+	function PlayM4_inputData(sourceData){
+		var timeOut=40;
+	    let bodyData = new Uint8Array(sourceData);
+        let total = Math.ceil(bodyData.length / (inputSize));
+		let i = 0;
+		requestAnimationFrame(PlayM4_inputData);
+		//var canvas = document.getElementById('player1');
+		// var oRect =canvas.getBoundingClientRect();
+        // this.iCanvasWidth = oRect.width;
+        // this.iCanvasHeight = oRect.height;
+		// canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+		//let gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+		//console.log("gl:"+gl);
+		
+		// 计时器，每隔40毫秒执行内部方法
+        this.timer = setInterval(() => {
+        // 先判断是否暂停塞流
+        if (i< total) {
+			if(!pauseInput)
+			{
+				const data = getInputOneFrameData(bodyData, i,inputSize);
+				if(inputSize>0)
+				{
+					let pInputData = Module._malloc(inputSize);
+					if (pInputData === null) {
+						console.log("inputdata malloc failed!!!");
+						return -1;
+					}
+					let inputData = new Uint8Array(data.buffer);
+					window.writeArrayToMemory(inputData, pInputData);
+					inputData=null;
+					var m_BeforeRenderTime =new Date().getTime();
+					console.log("renderframe1");
+					var resI = Module._copyYUVFrame(pInputData,inputSize);
+					//var resI = Module._RenderFrame(pInputData,yuvWidth,yuvHeight,inputSize);
+					var m_AfterRenderTime = new Date().getTime();
+					var m_totalRenderTime=m_AfterRenderTime-m_BeforeRenderTime;
+					//console.log("render 1 frame time:"+m_totalRenderTime);
+					Render100FrameTime=Render100FrameTime+m_totalRenderTime;
+					RenderNum++;
+					if(RenderNum>=100)
+					{
+						console.log("opengl es single render 100 frame time:"+Render100FrameTime);
+						Render100FrameTime=0;
+						RenderNum=0;
+					}
+					//console.log("resRenderFrameres:"+resI);
+					// if(resI!=0){
+					// 	console.log("inputdata failed");
+					// 	var timer2 = setInterval(()=>{
+					// 		timeOut=timeOut+10;
+					// 		resI = Module._InputData(nPort,pInputData,inputSize);
+					// 		if(resI === 1)
+					// 		{
+					// 			clearInterval(timer2);
+					// 			timer2 = null;
+					// 		}
+					// 	},1);
+					// }
+					// timeOut = 50;
+					// Module._free(pInputData);
+					// pInputData=null;
+				}
+				i++;
+			} 
+        }
+		else {
+            // 次数超过总次数清除计时器
+            clearInterval(this.timer);
+            this.timer = null;
+          }
+      }, timeOut); 	
+	}
+	function getInputOneFrameData(bodyData,i,inputSize){
+	    return bodyData.slice(i * inputSize, (i + 1) * inputSize);
+	}
+    function stop()
+    {
+		pauseInput=1;
+		const file = document.getElementById("uploadFile");
+		if (file) {
+			file.value = "";
+		}
+		Module._stop();
+	  
+	}
+	// 字母字符串转byte数组
+    function stringToBytes ( str ) {
+    var ch, st, re = [];
+    for (var i = 0; i < str.length; i++ ) {
+        ch = str.charCodeAt(i);  // get char
+        st = [];                 // set up "stack"
+        do {
+            st.push( ch & 0xFF );  // push byte to stack
+            ch = ch >> 8;          // shift value down by 1 byte
+        }
+        while ( ch );
+        // add stack contents to result
+        // done because chars have "wrong" endianness
+        re = re.concat( st.reverse() );
+    }
+    // return an array of bytes
+    return re;
+}
+	  
+ </script>
+  
+    <section>
+        <input type="file" id="uploadFile" onchange="readLocalFile()";/>
+    </section>
+     
+</body>
+</html>
