@@ -86,14 +86,17 @@ CRender::CRender()
 	g_nFrameWidth = 704;
 	g_nFrameHeight = 576;
 	g_size =g_yuvLen;
-	pFile = NULL;
 	g_stopFlag = 0;
 	g_pMutex=PTHREAD_MUTEX_INITIALIZER;
     cond = PTHREAD_COND_INITIALIZER;
 }
 CRender::~CRender()
 {
-
+    if (NULL != pYUVData)
+	{
+		delete []pYUVData;
+		pYUVData= NULL;
+	}
 }
 void CRender::initBuffers()
 {
@@ -205,11 +208,12 @@ void CRender::initContextGL()
 	// attr.premultipliedAlpha = 0; // 预乘阿尔法通道
 	// #if MAX_WEBGL_VERSION >= 2
 	attr.majorVersion = 2;
+	attr.powerPreference = EM_WEBGL_POWER_PREFERENCE_HIGH_PERFORMANCE;
 	// #endif
 	// printf("create context fallback\n");
 	// emscripten_webgl_make_context_current(NULL);
-	attr.proxyContextToMainThread = EMSCRIPTEN_WEBGL_CONTEXT_PROXY_FALLBACK; // EMSCRIPTEN_WEBGL_CONTEXT_PROXY_FALLBACK
-	attr.renderViaOffscreenBackBuffer = EM_TRUE;
+	//attr.proxyContextToMainThread = EMSCRIPTEN_WEBGL_CONTEXT_PROXY_FALLBACK; // EMSCRIPTEN_WEBGL_CONTEXT_PROXY_FALLBACK
+	attr.renderViaOffscreenBackBuffer = EM_FALSE;
 
 	glContext = emscripten_webgl_create_context(g_pHwd, &attr);
 	printf("initContextGL 2 ,g_pHwd:%s，glContext：%d\n", g_pHwd, glContext);
@@ -302,13 +306,6 @@ void CRender::requestRender(void *pUser)
 		printf("thread exit\n");
 		return ;
 	}
-	if (0 == fread(pThis->pYUVData, 1, pThis->g_size, pThis->pFile))
-	{
-		printf("read YUV file failed\n");
-		return ;
-	}
-
-
 	if (pThis->glContext != NULL)
 	{
 		pThis->makeCurrent(pThis->glContext);
@@ -360,28 +357,7 @@ void* CRender::initRender(void *hWindow)
 	// 初始化纹理
 	initTexture();
 	
-
-	if (pYUVData == NULL || g_yuvLen < g_size)
-	{
-		if (pYUVData != NULL)
-		{
-			delete[] pYUVData;
-			pYUVData = NULL;
-		}
-		pYUVData = new unsigned char[g_size];
-		if (pYUVData == NULL)
-			return NULL;
-		g_yuvLen = g_size;
-	}
-	if (NULL != pYUVData)
-	{
-		pFile = fopen("./704-576.data", "rb");
-		if (NULL == pFile)
-		{
-			printf("open YUV file failed");
-			return NULL;
-		}
-	}
+	
 	return hWindow;
 }
 
@@ -397,6 +373,7 @@ void* CRender::displayThread(void *pUser)
 
 int CRender::InitMain(void *hwnd)
 {
+	
 	if (!emscripten_supports_offscreencanvas())
 	{
 		printf("Current browser does not support OffscreenCanvas. Skipping the rest of the tests.\n");
@@ -417,8 +394,13 @@ int CRender::InitMain(void *hwnd)
 
 	return 0;
 }
-int CRender::startPlay(void* hwnd)
+int CRender::startPlay(void* hwnd,unsigned char* yuvData)
 {
+	if (NULL == pYUVData)
+	{
+		pYUVData = new unsigned char[g_yuvLen];
+	}
+	memcpy(pYUVData,yuvData,g_yuvLen);
 	InitMain(hwnd);
 	return 1;
 	

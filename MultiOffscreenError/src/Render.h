@@ -34,7 +34,7 @@ class CRender{
 		int RenderFrame(unsigned char *pFrameData, int nFrameWidth, int nFrameHeight, int size);	
 		int makeCurrent();
 		void *initRender(void *hWindow);
-		int startPlay(void* hwnd);
+		int startPlay(void* hwnd,unsigned char* yuvData);
 		int stopPlay();
 		
 		static void request(void *);
@@ -69,7 +69,7 @@ class CRender{
 		GLuint nVertexShader;
 		GLuint nFragmentShader;
 
-		FILE *pFile;
+		
         int g_stopFlag;
 		
 		pthread_mutex_t g_pMutex;

@@ -26,11 +26,12 @@
 		<title>MPlayer</title>
 	</head>
 	<div id="playwind">
-	    <canvas class="emscripten" id="player0" width="280px" height="200px" style="background-color:black"></canvas>
+	   <!--  <canvas class="emscripten" id="player0" width="280px" height="200px" style="background-color:black"></canvas> 
 		<canvas class="emscripten" id="player1" width="280px" height="200px" style="background-color:black"></canvas>
 		<canvas class="emscripten" id="player2" width="280px" height="200px" style="background-color:black"></canvas>
-		<canvas class="emscripten" id="player3" width="280px" height="200px" style="background-color:black"></canvas>	
+		<canvas class="emscripten" id="player3" width="280px" height="200px" style="background-color:black"></canvas>	 -->
 	</div>
+	<div id="playWind" style="width: 960px; height: 480px;"></div>
 	</html>
 
 	canvasNum：<select name="" id="canvasNum" style="width:90px;">
@@ -67,12 +68,21 @@
 				{
 					let oldCanvas = document.getElementById(`player${i}`);
 					if (oldCanvas) {
-					  let clonedCanvas = oldCanvas.cloneNode(true); // 克隆节点
 					  let clonedCanvasParentNode = oldCanvas.parentNode;
-					  clonedCanvasParentNode.replaceChild(clonedCanvas, oldCanvas);
+					  clonedCanvasParentNode.removeChild(oldCanvas);
 					}
 				}
-			    
+			    for(let i=0;i<4;i++)
+				{
+					//创建canvas
+					let canvasList = document.getElementById('playWind');
+					canvasElement = document.createElement('canvas');
+					canvasList.appendChild(canvasElement);
+					canvasElement.width = 280; 
+					canvasElement.height = 200;
+					canvasElement.id = `player${i}`;		
+					canvasElement.style.backgroundColor = '#0000000';
+				}
 				var pKeyData1 = Module._malloc(128);//通过emscripten分配C/C++中的堆内存
 				if (pKeyData1 === null) {
 					return;
