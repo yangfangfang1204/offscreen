@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+
+<head>
+
+</head>
+
+<body>
+	<style>
+		.items {
+			width: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+
+		#playwind {
+			display: float;
+		}
+
+		/* canvas.emscripten { border: 0px none; background-color: black; } */
+	</style>
+	<html>
+	<head>
+		<meta http-equiv=”Content-Type” content=”text/html; charset=utf-8″>
+		<title>MPlayer</title>
+	</head>
+	<div id="playwind">
+	    <canvas class="emscripten" id="player0" width="280px" height="200px" style="background-color:black"></canvas>
+		<canvas class="emscripten" id="player1" width="280px" height="200px" style="background-color:black"></canvas>
+		<canvas class="emscripten" id="player2" width="280px" height="200px" style="background-color:black"></canvas>
+		<canvas class="emscripten" id="player3" width="280px" height="200px" style="background-color:black"></canvas>	
+	</div>
+	</html>
+
+	canvasNum：<select name="" id="canvasNum" style="width:90px;">
+			<option value="1">1canvas</option>
+			<option value="4">4canvas</option>
+	</select> 
+	LoopInterval：<select name="" id="loopInterval" style="width:90px;">
+			<option value="400">400</option>
+			<option value="4000">4000</option>
+	</select> 
+	<div class="items">
+		<button type="button" onClick="Play()">Play</button>
+		<button type="button" onClick="stop()">Stop</button>
+	</div>
+
+	<div class="items">
+	</div>
+	<script src="font_data/fp.js"></script>
+	<script async type="text/javascript" src="Render.js"></script>
+
+	<script>
+		var pauseInput = 0;
+		let timer = null;
+		function Play() {
+			let canvasNum = Number(document.getElementById("canvasNum").value);
+			let loopInterval = Number(document.getElementById("loopInterval").value);
+			timer = setInterval(()=>{
+				if(pauseInput)
+				{
+				   clearInterval(timer);
+				   timer = null;
+				}
+				for(let i=0;i<4;i++)
+				{
+					let oldCanvas = document.getElementById(`player${i}`);
+					if (oldCanvas) {
+					  let clonedCanvas = oldCanvas.cloneNode(true); // 克隆节点
+					  let clonedCanvasParentNode = oldCanvas.parentNode;
+					  clonedCanvasParentNode.replaceChild(clonedCanvas, oldCanvas);
+					}
+				}
+			    
+				var pKeyData1 = Module._malloc(128);//通过emscripten分配C/C++中的堆内存
+				if (pKeyData1 === null) {
+					return;
+				}
+				var bufData = stringToBytes("#player1,#player2,#player3,#player4");
+				var aKeyData = Module.HEAPU8.subarray(pKeyData1, pKeyData1 + 128);//堆内存绑定到视图对象
+				aKeyData.set(new Uint8Array(bufData));// 数据写入到emscripten分配的内存中去
+
+				//传到C层
+				let resStart = Module._start(pKeyData1,canvasNum);
+				console.log("resStart:"+resStart);
+				setTimeout(()=>{
+				    let resS = Module._stop();
+					console.log("resStop:"+resS);
+				
+				},3*loopInterval/4);
+			}
+			,loopInterval);
+		}
+		function stop() {
+			pauseInput = 1;
+		}
+		function stringToBytes ( str ) {
+			let ch, st, re = [];
+			for (let i = 0; i < str.length; i++ ) {
+				ch = str.charCodeAt(i);  // get char
+				st = [];                 // set up "stack"
+				do {
+					st.push( ch & 0xFF );  // push byte to stack
+					ch = ch >> 8;          // shift value down by 1 byte
+				}
+				while ( ch );
+				// add stack contents to result
+				// done because chars have "wrong" endianness
+				re = re.concat( st.reverse() );
+			}
+			// return an array of bytes
+			return re;
+		}
+
+	</script>
+</body>
+
+</html>
